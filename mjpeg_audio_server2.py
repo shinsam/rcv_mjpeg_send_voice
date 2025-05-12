@@ -1,0 +1,120 @@
+# Flask는 파이썬에서 웹 서버를 만들 수 있는 라이브러리입니다.
+from flask import Flask, Response, request
+import cv2  # OpenCV는 영상 처리 라이브러리입니다.
+import threading  # 멀티스레드를 위한 라이브러리
+import socket  # 네트워크 통신을 위한 라이브러리
+import pyaudio  # 오디오 처리 라이브러리
+
+
+# Flask 애플리케이션을 초기화
+app = Flask(__name__)
+
+# 카메라에서 영상을 캡처하기 위해 OpenCV를 사용
+camera = cv2.VideoCapture(0)  # 0번 카메라는 기본 카메라를 의미합니다.
+
+# 클라이언트가 MJPEG 영상을 받을 수 있도록 영상 스트리밍을 처리하는 함수입니다.
+@app.route('/video')
+def video():
+    def generate():
+        while True:
+            # 카메라에서 프레임을 읽어옵니다.
+            success, frame = camera.read()
+            if not success:
+                break  # 프레임을 읽지 못하면 종료
+            # 영상을 JPEG 포맷으로 인코딩합니다.
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()  # 바이트로 변환
+
+            # 클라이언트에게 비디오 스트림을 전송
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+    # 이 함수는 클라이언트에게 MJPEG 스트림을 전달합니다.
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# 오디오를 처리하는 포트와 설정을 정의합니다.
+PORT = 50005  # 오디오 데이터 포트
+CHUNK = 2816  # 오디오 데이터의 청크 크기
+FORMAT = pyaudio.paInt16  # 오디오 형식 (16비트)
+CHANNELS = 1  # 오디오 채널 (모노)
+RATE = 44100  # 샘플링 레이트 (초당 샘플 수)
+
+# 클라이언트에서 전송된 오디오를 받는 함수
+def receive_audio():
+    
+
+    # 소켓을 생성하고 포트 50005에서 연결을 기다립니다.
+    s = socket.socket()
+    s.bind(('0.0.0.0', PORT))  # 모든 IP 주소에서 연결을 받습니다.
+    s.listen(1)  # 연결 요청을 1개만 기다립니다.
+    print("[Audio] Waiting for connection on port", PORT)
+    conn, addr = s.accept()  # 연결이 들어오면 accept로 연결을 수락
+    print('[Audio] Connected by', addr)
+
+    while True:
+        # 4. 클라이언트(안드로이드 앱)가 연결하면 수락
+        conn, addr = s.accept()
+        print(f"[AUDIO] Connected from {addr}")  # 연결된 클라이언트 주소 출력
+
+        # 5. PyAudio를 사용해서 스피커로 음성을 재생할 수 있게 설정
+        p = pyaudio.PyAudio()
+        stream = p.open(format=pyaudio.paInt16,   # 오디오 포맷: 16비트 PCM
+                        channels=1,               # 채널 수: 1 (모노)
+                        rate=44100,               # 샘플링 레이트: 44100Hz
+                        output=True)              # 출력 스트림 (재생용)
+
+        try:
+            # 6. 클라이언트가 보내는 음성 데이터를 계속 수신하고 재생
+            while True:
+                data = conn.recv(CHUNK)  # CHUNK 바이트씩 데이터 수신
+                if not data:
+                    print("[AUDIO] No data received. Ending stream.")
+                    break
+                stream.write(data)  # 받은 데이터를 스피커로 재생
+
+                print(f"[AUDIO] Received {len(data)} bytes")  # 디버깅용 출력
+                print(f"[AUDIO] Data (first 20 bytes): {data[:20]}")  # 첫 20바이트 출력
+                print(f"[AUDIO] Data (hex format): {data[:20].hex()}")  # 첫 20바이트를 16진수로 출력
+
+
+        except Exception as e:
+            # 7. 오류가 발생했을 때 메시지 출력
+            print("[AUDIO] Error:", e)
+
+        finally:
+            # 8. 재생 중지 및 자원 정리
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+            conn.close()
+            print("[AUDIO] Connection closed.")
+
+
+
+# IP 주소 출력 함수
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # 구글 DNS로 연결 (실제로는 전송되지 않음)
+        s.connect(('8.8.8.8', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+
+# 서버가 실행되면 시작되는 부분
+if __name__ == '__main__':
+    # IP 주소 출력
+    ip_address = get_ip_address()
+    print(f"[INFO] Server running at http://{ip_address}:8080/video")
+    print(f"[INFO] Audio socket listening on {ip_address}:50005")
+
+    # 오디오 수신을 별도의 스레드로 실행
+    audio_thread = threading.Thread(target=receive_audio)
+    audio_thread.start()
+
+    # Flask 서버를 실행 (0.0.0.0:8080) 비디오 스트리밍 시작
+    # 0.0.0.0이면 같은 Wi-Fi에 있는 다른 기기(예: 스마트폰, 에뮬레이터, 라즈베리파이)**에서도 접속할 수 있다
+    app.run(host='0.0.0.0', port=8080, threaded=True)
