@@ -1,0 +1,50 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <AutoCompleteTextView
+        android:id="@+id/ipInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter or select IP address"
+        android:inputType="text"
+        android:layout_marginTop="16dp"/>
+<!--    -->
+<!--    <EditText-->
+<!--        android:id="@+id/ipInput"-->
+<!--        android:hint="서버 IP 입력 (예: 192.168.0.100)"-->
+<!--        android:text="10.0.2.2"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content" />-->
+
+    <Button
+        android:id="@+id/connectButton"
+        android:text="Connect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <Button
+        android:id="@+id/micButton"
+        android:text="Hold to Record"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/darker_gray"
+        android:textColor="@android:color/white" />
+    <Button
+        android:layout_marginTop="8dp"
+        android:id="@+id/micTestButton"
+        android:text="음성전송 테스트"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/darker_gray"
+        android:textColor="@android:color/white" />
+</LinearLayout>
